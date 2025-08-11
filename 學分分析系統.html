@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>互動式學分追蹤系統</title>
+    <style>
+        /* --- CSS 樣式 --- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f4f7f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px 15px;
+            border: 1px solid #e0e0e0;
+            text-align: left;
+        }
+        thead {
+            background-color: #3498db;
+            color: #ffffff;
+        }
+        tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        form {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            align-items: center;
+        }
+        input[type="text"], input[type="number"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background-color: #3498db;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .delete-btn {
+            background-color: #e74c3c;
+        }
+        .delete-btn:hover {
+            background-color: #c0392b;
+        }
+        .total-credits {
+            margin-top: 20px;
+            font-size: 1.2em;
+            font-weight: bold;
+            text-align: right;
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>互動式學分追蹤系統</h1>
+
+        <h2>新增課程</h2>
+        <form id="add-course-form">
+            <input type="text" id="course-name" placeholder="課程名稱" required>
+            <input type="number" id="course-credits" placeholder="學分數" min="0" required>
+            <input type="text" id="course-category" placeholder="課程類別 (選填)">
+            <button type="submit">新增課程</button>
+        </form>
+
+        <h2>課程清單</h2>
+        <table id="courses-table">
+            <thead>
+                <tr>
+                    <th>課程名稱</th>
+                    <th>學分數</th>
+                    <th>類別</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="courses-list">
+                </tbody>
+        </table>
+
+        <div class="total-credits" id="total-credits">
+            總學分數：0
+        </div>
+    </div>
+
+    <script>
+    // --- JavaScript 邏輯 ---
+
+    // 等待HTML文件完全載入後再執行
+    document.addEventListener('DOMContentLoaded', () => {
+
+        const addForm = document.getElementById('add-course-form');
+        const coursesList = document.getElementById('courses-list');
+        const totalCreditsEl = document.getElementById('total-credits');
+        const storageKey = 'myCoursesData';
+
+        // 從 localStorage 載入課程資料
+        function getCourses() {
+            const coursesJSON = localStorage.getItem(storageKey);
+            // 如果沒有資料，返回一個空陣列
+            return coursesJSON ? JSON.parse(coursesJSON) : [];
+        }
+
+        // 將課程資料儲存到 localStorage
+        function saveCourses(courses) {
+            localStorage.setItem(storageKey, JSON.stringify(courses));
+        }
+
+        // 渲染課程列表到網頁上
+        function renderCourses() {
+            const courses = getCourses();
+            // 清空目前的表格內容
+            coursesList.innerHTML = '';
+            
+            let totalCredits = 0;
+
+            if (courses.length === 0) {
+                coursesList.innerHTML = `<tr><td colspan="4" style="text-align:center;">目前沒有任何課程資料。</td></tr>`;
+            } else {
+                courses.forEach((course, index) => {
+                    totalCredits += parseInt(course.credits, 10) || 0;
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${course.name}</td>
+                        <td>${course.credits}</td>
+                        <td>${course.category}</td>
+                        <td><button class="delete-btn" data-index="${index}">刪除</button></td>
+                    `;
+                    coursesList.appendChild(row);
+                });
+            }
+            
+            // 更新總學分顯示
+            totalCreditsEl.textContent = `總學分數：${totalCredits}`;
+        }
+
+        // 處理新增課程的表單提交
+        addForm.addEventListener('submit', (e) => {
+            // 防止表單提交時頁面重新整理
+            e.preventDefault();
+
+            const name = document.getElementById('course-name').value.trim();
+            const credits = document.getElementById('course-credits').value;
+            const category = document.getElementById('course-category').value.trim() || '未分類';
+
+            if (name === '' || credits === '') {
+                alert('課程名稱和學分數為必填項目！');
+                return;
+            }
+
+            const courses = getCourses();
+            courses.push({ name, credits, category });
+            saveCourses(courses);
+
+            // 重新渲染列表
+            renderCourses();
+
+            // 清空輸入框
+            addForm.reset();
+        });
+
+        // 處理刪除按鈕的點擊事件 (使用事件委派)
+        coursesList.addEventListener('click', (e) => {
+            // 檢查被點擊的是否是刪除按鈕
+            if (e.target.classList.contains('delete-btn')) {
+                const index = e.target.getAttribute('data-index');
+                if (confirm('確定要刪除這門課程嗎？')) {
+                    const courses = getCourses();
+                    courses.splice(index, 1); // 從陣列中移除該課程
+                    saveCourses(courses);
+                    renderCourses(); // 重新渲染列表
+                }
+            }
+        });
+
+        // 頁面首次載入時，渲染一次課程列表
+        renderCourses();
+    });
+    </script>
+
+</body>
+</html>
