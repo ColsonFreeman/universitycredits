@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>學分追蹤系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.35s;
+            transform-origin: 50% 50%;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- 標題 -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">🎓 學分追蹤系統</h1>
+            <p class="text-gray-600">管理你的課程進度，追蹤學分完成狀況</p>
+        </div>
+
+        <!-- 總覽卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <!-- 總學分進度 -->
+            <div class="bg-white rounded-xl shadow-lg p-6 text-center">
+                <div class="relative w-24 h-24 mx-auto mb-4">
+                    <svg class="progress-ring w-24 h-24" viewBox="0 0 120 120">
+                        <circle cx="60" cy="60" r="54" stroke="#e5e7eb" stroke-width="8" fill="transparent"/>
+                        <circle id="totalProgressCircle" cx="60" cy="60" r="54" stroke="#3b82f6" stroke-width="8" 
+                                fill="transparent" stroke-dasharray="339.292" stroke-dashoffset="339.292" 
+                                class="progress-ring-circle"/>
+                    </svg>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <span id="totalProgressText" class="text-xl font-bold text-gray-800">0%</span>
+                    </div>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-800">總學分進度</h3>
+                <p id="totalCreditsText" class="text-gray-600">0 / 128 學分</p>
+            </div>
+
+            <!-- 必修學分 -->
+            <div class="bg-white rounded-xl shadow-lg p-6 text-center">
+                <div class="text-3xl mb-2">📚</div>
+                <h3 class="text-lg font-semibold text-gray-800">必修學分</h3>
+                <p id="requiredCreditsText" class="text-2xl font-bold text-red-600">0 / 80</p>
+                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                    <div id="requiredProgressBar" class="bg-red-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- 選修學分 -->
+            <div class="bg-white rounded-xl shadow-lg p-6 text-center">
+                <div class="text-3xl mb-2">🎯</div>
+                <h3 class="text-lg font-semibold text-gray-800">選修學分</h3>
+                <p id="electiveCreditsText" class="text-2xl font-bold text-green-600">0 / 48</p>
+                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                    <div id="electiveProgressBar" class="bg-green-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 新增課程表單 -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">➕ 新增課程</h2>
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <input type="text" id="courseName" placeholder="課程名稱" 
+                       class="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <input type="number" id="courseCredits" placeholder="學分數" min="1" max="10" 
+                       class="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <select id="courseType" class="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="required">必修</option>
+                    <option value="elective">選修</option>
+                </select>
+                <select id="courseStatus" class="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="completed">已完成</option>
+                    <option value="in-progress">進行中</option>
+                    <option value="planned">計劃中</option>
+                </select>
+                <button onclick="addCourse()" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                    新增課程
+                </button>
+            </div>
+        </div>
+
+        <!-- 課程列表 -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">📋 課程列表</h2>
+            
+            <!-- 篩選器 -->
+            <div class="flex flex-wrap gap-4 mb-6">
+                <button onclick="filterCourses('all')" id="filterAll" 
+                        class="filter-btn bg-blue-600 text-white px-4 py-2 rounded-lg font-medium">
+                    全部
+                </button>
+                <button onclick="filterCourses('required')" id="filterRequired" 
+                        class="filter-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300">
+                    必修
+                </button>
+                <button onclick="filterCourses('elective')" id="filterElective" 
+                        class="filter-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300">
+                    選修
+                </button>
+                <button onclick="filterCourses('completed')" id="filterCompleted" 
+                        class="filter-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300">
+                    已完成
+                </button>
+            </div>
+
+            <!-- 課程表格 -->
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-gray-200">
+                            <th class="text-left py-3 px-4 font-semibold text-gray-700">課程名稱</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-700">學分</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-700">類型</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-700">狀態</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-700">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="courseTableBody">
+                        <!-- 課程將動態添加到這裡 -->
+                    </tbody>
+                </table>
+                <div id="emptyState" class="text-center py-12 text-gray-500">
+                    <div class="text-6xl mb-4">📚</div>
+                    <p class="text-lg">還沒有添加任何課程</p>
+                    <p class="text-sm">使用上方表單開始添加你的課程吧！</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let courses = [];
+        let currentFilter = 'all';
+
+        // 從 localStorage 載入資料
+        function loadCoursesFromStorage() {
+            const savedCourses = localStorage.getItem('creditTrackingCourses');
+            if (savedCourses) {
+                return JSON.parse(savedCourses);
+            }
+            return null;
+        }
+
+        // 儲存資料到 localStorage
+        function saveCoursesToStorage() {
+            localStorage.setItem('creditTrackingCourses', JSON.stringify(courses));
+        }
+
+        // 初始化課程數據
+        function initializeSampleData() {
+            // 先嘗試從 localStorage 載入
+            const savedCourses = loadCoursesFromStorage();
+            if (savedCourses && savedCourses.length > 0) {
+                courses = savedCourses;
+                updateDisplay();
+                return;
+            }
+
+            // 如果沒有儲存的資料，使用預設資料
+            const sampleCourses = [
+                // 大一上
+                { id: 1, name: '微積分(一)', credits: 3, type: 'required', status: 'completed' },
+                { id: 2, name: '計算機概論', credits: 3, type: 'required', status: 'completed' },
+                { id: 3, name: '程式設計(一)', credits: 3, type: 'required', status: 'completed' },
+                { id: 4, name: '英文(一)', credits: 2, type: 'required', status: 'completed' },
+                { id: 5, name: '體育(一)', credits: 0, type: 'required', status: 'completed' },
+                { id: 6, name: '服務學習(一)', credits: 0, type: 'required', status: 'completed' },
+                { id: 7, name: '國文', credits: 2, type: 'required', status: 'completed' },
+                { id: 8, name: '通識課程', credits: 2, type: 'elective', status: 'completed' },
+                
+                // 大一下
+                { id: 9, name: '微積分(二)', credits: 3, type: 'required', status: 'completed' },
+                { id: 10, name: '離散數學', credits: 3, type: 'required', status: 'completed' },
+                { id: 11, name: '程式設計(二)', credits: 3, type: 'required', status: 'completed' },
+                { id: 12, name: '英文(二)', credits: 2, type: 'required', status: 'completed' },
+                { id: 13, name: '體育(二)', credits: 0, type: 'required', status: 'completed' },
+                { id: 14, name: '服務學習(二)', credits: 0, type: 'required', status: 'completed' },
+                { id: 15, name: '通識課程', credits: 2, type: 'elective', status: 'completed' },
+                { id: 16, name: '通識課程', credits: 2, type: 'elective', status: 'completed' },
+                
+                // 大二上
+                { id: 17, name: '資料結構', credits: 3, type: 'required', status: 'completed' },
+                { id: 18, name: '線性代數', credits: 3, type: 'required', status: 'completed' },
+                { id: 19, name: '計算機組織', credits: 3, type: 'required', status: 'completed' },
+                { id: 20, name: '機率與統計', credits: 3, type: 'required', status: 'completed' },
+                { id: 21, name: '通識課程', credits: 2, type: 'elective', status: 'completed' },
+                { id: 22, name: '選修課程', credits: 3, type: 'elective', status: 'completed' },
+                
+                // 大二下
+                { id: 23, name: '演算法', credits: 3, type: 'required', status: 'completed' },
+                { id: 24, name: '系統程式', credits: 3, type: 'required', status: 'completed' },
+                { id: 25, name: '數位邏輯設計', credits: 3, type: 'required', status: 'completed' },
+                { id: 26, name: '物件導向程式設計', credits: 3, type: 'required', status: 'completed' },
+                { id: 27, name: '通識課程', credits: 2, type: 'elective', status: 'completed' },
+                { id: 28, name: '選修課程', credits: 3, type: 'elective', status: 'completed' },
+                
+                // 大三上
+                { id: 29, name: '作業系統', credits: 3, type: 'required', status: 'in-progress' },
+                { id: 30, name: '資料庫系統', credits: 3, type: 'required', status: 'in-progress' },
+                { id: 31, name: '計算機網路', credits: 3, type: 'required', status: 'in-progress' },
+                { id: 32, name: '軟體工程', credits: 3, type: 'required', status: 'in-progress' },
+                { id: 33, name: '選修課程', credits: 3, type: 'elective', status: 'in-progress' },
+                { id: 34, name: '選修課程', credits: 3, type: 'elective', status: 'in-progress' },
+                
+                // 大三下
+                { id: 35, name: '編譯器設計', credits: 3, type: 'required', status: 'planned' },
+                { id: 36, name: '人工智慧', credits: 3, type: 'required', status: 'planned' },
+                { id: 37, name: '計算機圖學', credits: 3, type: 'required', status: 'planned' },
+                { id: 38, name: '專題研究(一)', credits: 2, type: 'required', status: 'planned' },
+                { id: 39, name: '選修課程', credits: 3, type: 'elective', status: 'planned' },
+                { id: 40, name: '選修課程', credits: 3, type: 'elective', status: 'planned' },
+                
+                // 大四上
+                { id: 41, name: '專題研究(二)', credits: 2, type: 'required', status: 'planned' },
+                { id: 42, name: '選修課程', credits: 3, type: 'elective', status: 'planned' },
+                { id: 43, name: '選修課程', credits: 3, type: 'elective', status: 'planned' },
+                { id: 44, name: '選修課程', credits: 3, type: 'elective', status: 'planned' },
+                { id: 45, name: '選修課程', credits: 3, type: 'elective', status: 'planned' },
+                
+                // 大四下
+                { id: 46, name: '選修課程', credits: 3, type: 'elective', status: 'planned' },
+                { id: 47, name: '選修課程', credits: 3, type: 'elective', status: 'planned' },
+                { id: 48, name: '選修課程', credits: 3, type: 'elective', status: 'planned' },
+                { id: 49, name: '選修課程', credits: 3, type: 'elective', status: 'planned' }
+            ];
+            
+            courses = sampleCourses;
+            updateDisplay();
+        }
+
+        function addCourse() {
+            const name = document.getElementById('courseName').value.trim();
+            const credits = parseInt(document.getElementById('courseCredits').value);
+            const type = document.getElementById('courseType').value;
+            const status = document.getElementById('courseStatus').value;
+
+            if (!name || !credits || credits < 1) {
+                alert('請填寫完整的課程資訊！');
+                return;
+            }
+
+            const newCourse = {
+                id: Date.now(),
+                name: name,
+                credits: credits,
+                type: type,
+                status: status
+            };
+
+            courses.push(newCourse);
+            
+            // 儲存到 localStorage
+            saveCoursesToStorage();
+            
+            // 清空表單
+            document.getElementById('courseName').value = '';
+            document.getElementById('courseCredits').value = '';
+            
+            updateDisplay();
+        }
+
+        function deleteCourse(courseId) {
+            courses = courses.filter(course => course.id != courseId);
+            saveCoursesToStorage();
+            updateDisplay();
+        }
+
+        function updateCourseStatus(id, newStatus) {
+            const course = courses.find(c => c.id === id);
+            if (course) {
+                course.status = newStatus;
+                saveCoursesToStorage();
+                updateDisplay();
+            }
+        }
+
+        function filterCourses(filter) {
+            currentFilter = filter;
+            
+            // 更新篩選按鈕樣式
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.className = 'filter-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300';
+            });
+            
+            const activeBtn = document.getElementById('filter' + filter.charAt(0).toUpperCase() + filter.slice(1));
+            if (activeBtn) {
+                activeBtn.className = 'filter-btn bg-blue-600 text-white px-4 py-2 rounded-lg font-medium';
+            }
+            
+            updateCourseTable();
+        }
+
+        function updateDisplay() {
+            updateStats();
+            updateCourseTable();
+        }
+
+        function updateStats() {
+            const totalCredits = 128;
+            const requiredTotal = 80;
+            const electiveTotal = 48;
+
+            const completedCourses = courses.filter(c => c.status === 'completed');
+            const completedRequired = completedCourses.filter(c => c.type === 'required');
+            const completedElective = completedCourses.filter(c => c.type === 'elective');
+
+            const earnedCredits = completedCourses.reduce((sum, c) => sum + c.credits, 0);
+            const earnedRequired = completedRequired.reduce((sum, c) => sum + c.credits, 0);
+            const earnedElective = completedElective.reduce((sum, c) => sum + c.credits, 0);
+
+            // 更新總進度
+            const totalProgress = Math.min((earnedCredits / totalCredits) * 100, 100);
+            document.getElementById('totalProgressText').textContent = Math.round(totalProgress) + '%';
+            document.getElementById('totalCreditsText').textContent = `${earnedCredits} / ${totalCredits} 學分`;
+            
+            // 更新圓形進度條
+            const circumference = 2 * Math.PI * 54;
+            const offset = circumference - (totalProgress / 100) * circumference;
+            document.getElementById('totalProgressCircle').style.strokeDashoffset = offset;
+
+            // 更新必修進度
+            const requiredProgress = Math.min((earnedRequired / requiredTotal) * 100, 100);
+            document.getElementById('requiredCreditsText').textContent = `${earnedRequired} / ${requiredTotal}`;
+            document.getElementById('requiredProgressBar').style.width = requiredProgress + '%';
+
+            // 更新選修進度
+            const electiveProgress = Math.min((earnedElective / electiveTotal) * 100, 100);
+            document.getElementById('electiveCreditsText').textContent = `${earnedElective} / ${electiveTotal}`;
+            document.getElementById('electiveProgressBar').style.width = electiveProgress + '%';
+        }
+
+        function updateCourseTable() {
+            const tbody = document.getElementById('courseTableBody');
+            const emptyState = document.getElementById('emptyState');
+            
+            let filteredCourses = courses;
+            
+            if (currentFilter !== 'all') {
+                if (currentFilter === 'required' || currentFilter === 'elective') {
+                    filteredCourses = courses.filter(c => c.type === currentFilter);
+                } else if (currentFilter === 'completed') {
+                    filteredCourses = courses.filter(c => c.status === 'completed');
+                }
+            }
+
+            if (filteredCourses.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            
+            tbody.innerHTML = filteredCourses.map(course => {
+                const statusColors = {
+                    'completed': 'bg-green-100 text-green-800',
+                    'in-progress': 'bg-yellow-100 text-yellow-800',
+                    'planned': 'bg-gray-100 text-gray-800'
+                };
+                
+                const statusText = {
+                    'completed': '已完成',
+                    'in-progress': '進行中',
+                    'planned': '計劃中'
+                };
+
+                const typeColors = {
+                    'required': 'bg-red-100 text-red-800',
+                    'elective': 'bg-blue-100 text-blue-800'
+                };
+
+                const typeText = {
+                    'required': '必修',
+                    'elective': '選修'
+                };
+
+                return `
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="py-3 px-4 font-medium text-gray-900">${course.name}</td>
+                        <td class="py-3 px-4 text-center font-semibold text-blue-600">${course.credits}</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="px-2 py-1 rounded-full text-xs font-medium ${typeColors[course.type]}">
+                                ${typeText[course.type]}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-center">
+                            <select onchange="updateCourseStatus(${course.id}, this.value)" 
+                                    class="px-2 py-1 rounded text-xs font-medium ${statusColors[course.status]} border-0 focus:ring-2 focus:ring-blue-500">
+                                <option value="completed" ${course.status === 'completed' ? 'selected' : ''}>已完成</option>
+                                <option value="in-progress" ${course.status === 'in-progress' ? 'selected' : ''}>進行中</option>
+                                <option value="planned" ${course.status === 'planned' ? 'selected' : ''}>計劃中</option>
+                            </select>
+                        </td>
+                        <td class="py-3 px-4 text-center">
+                            <button onclick="deleteCourse(${course.id})" 
+                                    class="text-red-600 hover:text-red-800 font-medium text-sm px-2 py-1 rounded hover:bg-red-50 transition-colors">
+                                🗑️ 刪除
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeSampleData();
+        });
+    </script>
+</body>
+</html>
